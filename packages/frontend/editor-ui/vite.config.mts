@@ -98,11 +98,11 @@ const plugins: UserConfig['plugins'] = [
 	viteStaticCopy({
 		targets: [
 			{
-				src: pathPosix.resolve('node_modules/web-tree-sitter/tree-sitter.wasm'),
+				src: resolve(packagesDir, '..', 'node_modules/web-tree-sitter/tree-sitter.wasm'),
 				dest: resolve(__dirname, 'dist'),
 			},
 			{
-				src: pathPosix.resolve('node_modules/curlconverter/dist/tree-sitter-bash.wasm'),
+				src: resolve(packagesDir, '..', 'node_modules/curlconverter/dist/tree-sitter-bash.wasm'),
 				dest: resolve(__dirname, 'dist'),
 			},
 		],

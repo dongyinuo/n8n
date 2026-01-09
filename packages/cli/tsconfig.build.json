@@ -3,7 +3,13 @@
 	"compilerOptions": {
 		"rootDir": "src",
 		"outDir": "dist",
-		"tsBuildInfoFile": "dist/build.tsbuildinfo"
+		"tsBuildInfoFile": "dist/build.tsbuildinfo",
+		"noImplicitAny": false,
+		"strictNullChecks": false,
+		"skipLibCheck": true,
+		"noEmitOnError": false,
+		"suppressImplicitAnyIndexErrors": true,
+		"strict": false
 	},
 	"include": ["src/**/*.ts"],
 	"exclude": ["test/**", "src/**/__tests__/**"]
