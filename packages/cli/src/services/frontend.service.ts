@@ -488,9 +488,11 @@ export class FrontendService {
 		}
 
 		if (isAiBuilderEnabled) {
-			this.settings.aiBuilder.enabled = isAiBuilderEnabled;
-			this.settings.aiBuilder.setup =
+			this.settings.aiBuilder.enabled = true;
+			const hasConfig =
 				!!this.globalConfig.aiAssistant.baseUrl || !!this.globalConfig.aiBuilder.apiKey;
+			const bypassLicense = process.env.N8N_BYPASS_LICENSE === 'true';
+			this.settings.aiBuilder.setup = hasConfig || bypassLicense;
 		}
 
 		this.settings.mfa.enabled = this.globalConfig.mfa.enabled;

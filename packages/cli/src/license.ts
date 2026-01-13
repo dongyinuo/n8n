@@ -250,6 +250,17 @@ export class License implements LicenseProvider {
 	}
 
 	isLicensed(feature: BooleanLicenseFeature) {
+		// 开发环境：通过环境变量绕过所有许可证检查
+		// 设置 N8N_BYPASS_LICENSE=true 即可启用所有企业功能
+		const bypassLicense = process.env.N8N_BYPASS_LICENSE === 'true';
+		if (bypassLicense) {
+			// 特殊处理：SHOW_NON_PROD_BANNER 在绕过时应该返回 false（不显示横幅）
+			if (feature === LICENSE_FEATURES.SHOW_NON_PROD_BANNER) {
+				return false;
+			}
+			this.logger.info(`[License Bypass] Feature enabled: ${feature}`);
+			return true;
+		}
 		return this.manager?.hasFeatureEnabled(feature) ?? false;
 	}
 
@@ -378,6 +389,19 @@ export class License implements LicenseProvider {
 	}
 
 	getValue<T extends keyof FeatureReturnType>(feature: T): FeatureReturnType[T] {
+		// 开发环境：如果设置了 N8N_BYPASS_LICENSE，对于配额类功能返回无限制
+		if (process.env.N8N_BYPASS_LICENSE === 'true') {
+			// 配额类功能返回无限制值
+			const featureStr = String(feature);
+			if (featureStr.startsWith('quota:')) {
+				return UNLIMITED_LICENSE_QUOTA as FeatureReturnType[T];
+			}
+			// LICENSE_QUOTAS 中的配额也返回无限制
+			const quotaValues = Object.values(LICENSE_QUOTAS) as string[];
+			if (quotaValues.includes(featureStr)) {
+				return UNLIMITED_LICENSE_QUOTA as FeatureReturnType[T];
+			}
+		}
 		return this.manager?.getFeatureValue(feature) as FeatureReturnType[T];
 	}
 
@@ -444,6 +468,10 @@ export class License implements LicenseProvider {
 
 	/** @deprecated Use `LicenseState` instead. */
 	getTeamProjectLimit() {
+		// 开发环境：如果设置了 N8N_BYPASS_LICENSE，返回无限制
+		if (process.env.N8N_BYPASS_LICENSE === 'true') {
+			return UNLIMITED_LICENSE_QUOTA;
+		}
 		return this.getValue(LICENSE_QUOTAS.TEAM_PROJECT_LIMIT) ?? 0;
 	}
 
