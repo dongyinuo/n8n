@@ -57,127 +57,26 @@ export class AiWorkflowBuilderService {
 		const customBaseUrl = process.env.N8N_AI_BUILDER_BASE_URL || baseUrl;
 		const customApiKey = process.env.N8N_AI_BUILDER_API_KEY || apiKey;
 
-		// 如果使用 OpenAI 兼容的 API（包括 DeepSeek）
-		if (modelProvider === 'openai' || modelProvider === 'deepseek') {
+		// 如果使用 OpenAI 兼容的 API
+		if (modelProvider === 'openai') {
 			const { ChatOpenAI } = await import('@langchain/openai');
-			const defaultBaseUrl =
-				modelProvider === 'deepseek' ? 'https://api.deepseek.com/v1' : 'https://api.openai.com/v1';
+			const defaultBaseUrl = 'https://api.openai.com/v1';
 
-			// 为 DeepSeek 创建自定义 fetch 函数，拦截并移除 response_format
 			const fetchOptions: any = {
 				dispatcher: getProxyAgent(customBaseUrl || defaultBaseUrl),
 			};
 
-			if (modelProvider === 'deepseek') {
-				// 保存原始的 fetch 函数
-				const originalFetch = global.fetch;
-
-				// 创建自定义 fetch，拦截请求并移除 response_format
-				fetchOptions.fetch = async (url: string | URL, init?: RequestInit): Promise<Response> => {
-					const urlString = typeof url === 'string' ? url : url.toString();
-
-					// 如果是 DeepSeek API 请求，拦截并修改请求体
-					if (urlString.includes('deepseek.com') && init?.body) {
-						try {
-							// 解析请求体
-							let body: any;
-							if (typeof init.body === 'string') {
-								body = JSON.parse(init.body);
-							} else if (init.body instanceof FormData) {
-								// FormData 不需要处理
-								return originalFetch(url, init);
-							} else {
-								body = init.body;
-							}
-
-							// 移除 response_format 参数
-							if (body && typeof body === 'object') {
-								if ('response_format' in body) {
-									delete body.response_format;
-								}
-								// 重新序列化请求体
-								init.body = JSON.stringify(body);
-							}
-						} catch {
-							// 如果解析失败，继续使用原始请求（忽略错误）
-						}
-					}
-
-					return originalFetch(url, init);
-				};
-			}
-
-			// 对于 DeepSeek，确保不设置 response_format
-			// 通过 modelKwargs 显式设置为 undefined（如果 LangChain 支持）
-			const modelKwargs: Record<string, unknown> | undefined =
-				modelProvider === 'deepseek' ? {} : undefined;
-
 			const chatModel = new ChatOpenAI({
-				model: modelName, // 例如: 'deepseek-chat' 或 'gpt-4'
+				model: modelName, // 例如: 'gpt-4'
 				apiKey: customApiKey,
 				temperature: 0,
 				maxTokens: -1,
-				modelKwargs, // 确保不传递 response_format
 				configuration: {
 					baseURL: customBaseUrl || defaultBaseUrl,
 					defaultHeaders: authHeaders,
 					fetchOptions,
 				},
 			});
-
-			// DeepSeek 不支持某些 response_format 类型，需要拦截 bindTools
-			if (modelProvider === 'deepseek') {
-				const originalBindTools = chatModel.bindTools.bind(chatModel);
-				chatModel.bindTools = function (tools, kwargs) {
-					// 调用原始的 bindTools，但传入 kwargs 时排除 responseFormat
-					const cleanKwargs = kwargs ? { ...kwargs } : {};
-					if ('responseFormat' in cleanKwargs) {
-						delete cleanKwargs.responseFormat;
-					}
-					const boundModel = originalBindTools(
-						tools,
-						Object.keys(cleanKwargs).length > 0 ? cleanKwargs : undefined,
-					);
-
-					// 如果 boundModel 有 responseFormat 属性，移除它
-					if (boundModel && 'responseFormat' in boundModel) {
-						delete (boundModel as any).responseFormat;
-					}
-
-					// 拦截底层 HTTP 请求，移除 response_format 参数
-					// 通过修改 boundModel 的内部配置
-					if (boundModel && (boundModel as any).lc_kwargs) {
-						const lcKwargs = (boundModel as any).lc_kwargs;
-						if (lcKwargs && lcKwargs.responseFormat) {
-							delete lcKwargs.responseFormat;
-						}
-					}
-
-					// 拦截 invoke 调用，确保不传递 response_format
-					if (boundModel && typeof boundModel.invoke === 'function') {
-						const originalInvoke = boundModel.invoke.bind(boundModel);
-						boundModel.invoke = async function (input, options) {
-							// 如果 input 中有 response_format，移除它
-							if (input && typeof input === 'object' && 'response_format' in input) {
-								const { response_format, ...restInput } = input as any;
-								return originalInvoke(restInput, options);
-							}
-							return originalInvoke(input, options);
-						};
-					}
-
-					// 拦截底层 HTTP 请求配置
-					// 通过修改 configuration 来移除 response_format
-					if (boundModel && (boundModel as any).configuration) {
-						const config = (boundModel as any).configuration;
-						if (config && config.defaultParams && config.defaultParams.response_format) {
-							delete config.defaultParams.response_format;
-						}
-					}
-
-					return boundModel;
-				};
-			}
 
 			return chatModel;
 		}
@@ -186,6 +85,7 @@ export class AiWorkflowBuilderService {
 		return await anthropicClaudeSonnet45({
 			baseUrl: customBaseUrl,
 			apiKey: customApiKey,
+			model: modelName,
 			headers: {
 				...authHeaders,
 				// eslint-disable-next-line @typescript-eslint/naming-convention
@@ -244,7 +144,7 @@ export class AiWorkflowBuilderService {
 			}
 
 			// If base URL is not set, use environment variables
-			// 优先使用 N8N_AI_BUILDER_API_KEY（用于 DeepSeek/OpenAI），否则使用 N8N_AI_ANTHROPIC_KEY（用于 Anthropic）
+			// 优先使用 N8N_AI_BUILDER_API_KEY（用于 OpenAI），否则使用 N8N_AI_ANTHROPIC_KEY（用于 Anthropic）
 			const apiKey = process.env.N8N_AI_BUILDER_API_KEY || process.env.N8N_AI_ANTHROPIC_KEY || '';
 			const anthropicClaude = await AiWorkflowBuilderService.getAnthropicClaudeModel({
 				apiKey,

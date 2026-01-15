@@ -7,6 +7,7 @@ interface LLMProviderConfig {
 	apiKey: string;
 	baseUrl?: string;
 	headers?: Record<string, string>;
+	model?: string;
 }
 
 export const o4mini = async (config: LLMProviderConfig) => {
@@ -61,7 +62,7 @@ export const gpt41 = async (config: LLMProviderConfig) => {
 export const anthropicClaudeSonnet45 = async (config: LLMProviderConfig) => {
 	const { ChatAnthropic } = await import('@langchain/anthropic');
 	const model = new ChatAnthropic({
-		model: 'claude-sonnet-4-5',
+		model: config.model || 'claude-sonnet-4-5',
 		apiKey: config.apiKey,
 		temperature: 0,
 		maxTokens: MAX_OUTPUT_TOKENS,
